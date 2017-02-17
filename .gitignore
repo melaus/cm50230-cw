@@ -12,3 +12,9 @@
 hs_err_pid*
 
 lego/
+
+.classpath
+.idea/
+.project
+.settings/
+TeamDCW1.iml
