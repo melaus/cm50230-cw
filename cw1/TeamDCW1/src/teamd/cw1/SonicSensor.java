@@ -13,15 +13,17 @@ public class SonicSensor {
     EV3UltrasonicSensor sonic_module;
     SimpleSonic sonic;
     SonicThread sonicThread;
+    double minDistance;
+    private boolean isTooClose = false;
 
     // CONSTRUCTOR
     public SonicSensor(
-            Port l_bumper_port,
-            Port r_bumper_port,
-            Port sonic_port) {
+            Port sonic_port,
+            double minDistance) {
         this.sonic_port = sonic_port;
         this.sonic_module = new EV3UltrasonicSensor(sonic_port);
-        this.sonic = new SimpleSonic(sonic_module);
+        this.sonic = new SimpleSonic(sonic_module.getDistanceMode(), minDistance);
+        this.minDistance = minDistance;
 
         // Thread
         this.sonicThread = new SonicThread();
@@ -36,8 +38,11 @@ public class SonicSensor {
 
         public void run() {
             while (true) {
-                if (sonic.isPressed()) {
-                    // MainClass.handleInput();
+                if (!isTooClose & sonic.isObstacle()) {
+                    isTooClose = true;
+                    // TODO:  Main.handleInput();
+                } else if (isTooClose & !sonic.isObstacle()) {
+                    isTooClose = false;
                 }
             }
         }
