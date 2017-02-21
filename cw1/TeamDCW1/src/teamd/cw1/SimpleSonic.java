@@ -3,10 +3,10 @@ package teamd.cw1;
 import lejos.robotics.SampleProvider;
 import lejos.robotics.filter.AbstractFilter;
 
-public class SimpleTouch extends AbstractFilter{
+public class SimpleSonic extends AbstractFilter{
 	private float[] sample;
 
-	public SimpleTouch (SampleProvider source)  {
+	public SimpleSonic(SampleProvider source)  {
 		super(source);
 		sample = new float[sampleSize];
 	}
@@ -15,5 +15,4 @@ public class SimpleTouch extends AbstractFilter{
 		super.fetchSample(sample, 0);
 		return sample[0] != 0; 
 	}
-
 }
