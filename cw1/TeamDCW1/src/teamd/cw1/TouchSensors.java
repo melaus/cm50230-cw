@@ -8,35 +8,35 @@ import lejos.hardware.sensor.EV3UltrasonicSensor;
  * Created by melaus on 20/02/2017.
  */
 public class TouchSensors {
-    // Initialisation
-    Port l_bumper_port;
-    Port r_bumper_port;
+
+    private boolean touchDetected = false;
+
+
+    /*
+     * Initialisation
+     */
+    // Touch sensors and object to obtain results
     EV3TouchSensor l_bumper_module;
     EV3TouchSensor r_bumper_module;
     SimpleTouch l_bumper;
     SimpleTouch r_bumper;
 
-    Motors motors;
-
     TouchThread touchThread;
 
-    // CONSTRUCTOR
+
+    /*
+     * CONSTRUCTOR
+     */
     public TouchSensors(
             Port l_bumper_port,
-            Port r_bumper_port,
-            Motors motors) {
+            Port r_bumper_port) {
 
         // touch sensors
-        this.l_bumper_port = l_bumper_port;
-        this.r_bumper_port = r_bumper_port;
         this.l_bumper_module = new EV3TouchSensor(l_bumper_port);
         this.r_bumper_module = new EV3TouchSensor(r_bumper_port);
 
-        this.l_bumper = new SimpleTouch(this.l_bumper);
-        this.r_bumper = new SimpleTouch(this.r_bumper);
-
-        // motors
-        this.motors = motors;
+        this.l_bumper = new SimpleTouch(this.l_bumper_module);
+        this.r_bumper = new SimpleTouch(this.r_bumper_module);
 
         // Thread
         this.touchThread = new TouchThread();
@@ -44,6 +44,10 @@ public class TouchSensors {
     }
 
 
+    /*
+     * THREAD
+     * to detect touch sensor activity and perform actions
+     */
     public class TouchThread extends Thread {
         public TouchThread() {
             // TODO: do something
@@ -52,10 +56,11 @@ public class TouchSensors {
         public void run() {
             while (true) {
                 // check if bumper is pressed
-                if (l_bumper.isPressed() || r_bumper.isPressed()) {
-                    motors.stop();
-                    motors.recoverFromObstacle(); // TODO: needs work
-                    // MainClass.handleInput();
+                if (!touchDetected && (l_bumper.isPressed() || r_bumper.isPressed())) {
+                    touchDetected = true;
+                    Main.handleInput(DeviceTypeEnum.TOUCH, Main.TOUCH_CONTACT);
+                } else if (touchDetected && !(l_bumper.isPressed() || r_bumper.isPressed())) {
+                    touchDetected = false;
                 }
             }
         }

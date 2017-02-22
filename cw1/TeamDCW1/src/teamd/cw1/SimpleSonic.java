@@ -17,4 +17,9 @@ public class SimpleSonic extends AbstractFilter{
 		super.fetchSample(sample, 0);
 		return sample[0] < minDistance;
 	}
+
+	public double getDistance() {
+	    return sample[0];
+    }
+
 }
