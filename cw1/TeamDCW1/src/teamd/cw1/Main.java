@@ -10,7 +10,7 @@ import lejos.hardware.port.SensorPort;
  * Right motor:  A
  * Bumper right: 1
  * Bumper left:  4
- * Head:         C
+ * Head:         2
  * Head's motor: B
  */
 
@@ -35,6 +35,7 @@ public class Main {
     private static final int TIME_INTERVAL = 2500;
     private static final float MIN_DISTANCE = 0.3f;
     private static final float MAX_DISTANCE = 0.5f;
+    private static final int DEFAULT_HEAD_ANGLE = 45;
 
     // Private variables
     private static Motors motors;
@@ -55,9 +56,9 @@ public class Main {
         mainThread.start();
 
 //        motors.forward();
-        head.look(45, LEFT);
-        head.look(45, LEFT);
-        head.look(45, "");
+        head.look(DEFAULT_HEAD_ANGLE, LEFT);
+        head.look(DEFAULT_HEAD_ANGLE, LEFT);
+        head.look(DEFAULT_HEAD_ANGLE, "");
 
     }
 
@@ -93,7 +94,7 @@ public class Main {
                     status = FOLLOWING_WALL;
                     wallSide = RIGHT;
                     motors.rotate(RIGHT_ANGLE, opposite(wallSide));
-                    head.look(45, wallSide);
+                    head.look(DEFAULT_HEAD_ANGLE, wallSide);
                     motors.forward();
                 } else if (status.equals(FOLLOWING_WALL)) {
                     //int correctionDistance = MIN_DISTANCE - head.getDistance();
@@ -115,6 +116,7 @@ public class Main {
             while (alive) {
                 if ((Button.waitForAnyPress() & Button.ID_ESCAPE) != 0) {
                     alive = false;
+                    head.look(DEFAULT_HEAD_ANGLE, ""); // reset head
                     System.exit(1);
                 }
             }
