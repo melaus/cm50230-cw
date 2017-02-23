@@ -9,6 +9,7 @@ public class Motors {
     // Initialisation
     private static final String LEFT = "left";
     private static final String RIGHT = "right";
+    private static final int DEFAULT_MOTOR_SPEED = 50;
 
     // Initialisation
     private EV3LargeRegulatedMotor l_motor;
@@ -52,13 +53,21 @@ public class Motors {
 
     public void rotate(int angle, String direction) {
         // Translates desired rotation magnitude and direction of robot into wheel rotation
-        angle *= direction == LEFT ? 2 : -2;
+        angle *= direction.equals(LEFT) ? 2 : -2;
         l_motor.rotate(-angle, true);
         r_motor.rotate(angle);
     }
 
-    public void smoothRotate(int angle, String direction) {
-        // TODO: make it work
+    public void smoothRotate(String direction, float sharpness, boolean isRotate) {
+        float speed = isRotate ? DEFAULT_MOTOR_SPEED * sharpness : DEFAULT_MOTOR_SPEED;
+
+        switch (direction) {
+            case LEFT:
+                l_motor.setSpeed(speed);
+                break;
+            case RIGHT:
+                r_motor.setSpeed(speed);
+        }
     }
 
 
