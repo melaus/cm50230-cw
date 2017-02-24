@@ -58,7 +58,7 @@ public class TouchSensors {
                 // check if bumper is pressed
                 if (!touchDetected && (l_bumper.isPressed() || r_bumper.isPressed())) {
                     touchDetected = true;
-                    Main.handleInput(DeviceTypeEnum.TOUCH, Main.TOUCH_CONTACT);
+                    Main.handleInput(ModuleEnum.TOUCH, Main.TOUCH_CONTACT);
                 } else if (touchDetected && !(l_bumper.isPressed() || r_bumper.isPressed())) {
                     touchDetected = false;
                 }

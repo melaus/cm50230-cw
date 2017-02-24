@@ -1,5 +1,12 @@
 package teamd.cw1;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import lejos.hardware.motor.EV3MediumRegulatedMotor;
 import lejos.hardware.port.Port;
 import lejos.hardware.sensor.EV3TouchSensor;
@@ -9,25 +16,24 @@ import lejos.hardware.sensor.EV3UltrasonicSensor;
  * Created by melaus on 20/02/2017.
  */
 public class Head {
-    // Initialisation
-    Port sonic_port;
-    EV3UltrasonicSensor sonic_module;
-    SimpleSonic sonic;
 
-    Port motor_port;
-    EV3MediumRegulatedMotor motor;
-
-    HeadThread headThread;
-
-
-    double minDistance;
-    double maxDistance;
-    private boolean isTooClose = false;
-
+    private static final String FRONT = "front";
     private static final String LEFT = "left";
     private static final String RIGHT = "right";
-    private static final String FRONT = "front";
 
+    // Initialisation
+    private EV3UltrasonicSensor sonic_module;
+    private SimpleSonic sonic;
+
+    private EV3MediumRegulatedMotor motor;
+
+    private HeadThread headThread;
+
+    private double lastDistance;
+
+    private Date date = new Date();
+
+    private List<DistanceTimestamp> distanceTimestamps = new ArrayList<DistanceTimestamp>();
 
     /*
      * CONSTRUCTOR
@@ -35,13 +41,10 @@ public class Head {
     public Head(
             Port motor_port, Port sonic_port,
             double minDistance, double maxDistance) {
-        this.sonic_port = sonic_port;
         this.sonic_module = new EV3UltrasonicSensor(sonic_port);
-        this.sonic = new SimpleSonic(sonic_module.getDistanceMode(), minDistance);
+        this.sonic = new SimpleSonic(sonic_module.getDistanceMode(), minDistance, maxDistance);
 
         this.motor = new EV3MediumRegulatedMotor(motor_port);
-        this.minDistance = minDistance;
-        this.maxDistance = maxDistance;
 
         // Thread
         this.headThread = new HeadThread();
@@ -78,13 +81,56 @@ public class Head {
 
         public void run() {
             while (true) {
-                if (!isTooClose & sonic.isObstacle()) {
-                    isTooClose = true;
-                    // TODO:  Main.handleInput();
-                } else if (isTooClose & !sonic.isObstacle()) {
-                    isTooClose = false;
+
+                double distance = getDistance();
+                double time = date.getTime();
+                if (distance == lastDistance) return;
+                lastDistance = distance;
+
+                Collection<DistanceTimestamp> result = new ArrayList<DistanceTimestamp>();
+                for (int i = 0; i < distanceTimestamps.size(); i++) {
+                    DistanceTimestamp dt = distanceTimestamps.get(i);
+                    if (time - dt.getTime() < 1000) {
+                        result.add(dt);
+                    }
+                }
+
+                distanceTimestamps = (List<DistanceTimestamp>) result;
+
+                DistanceTimestamp dt = new DistanceTimestamp(date.getTime(), distance);
+                distanceTimestamps.add(dt);
+
+                double delta = distanceTimestamps.get(distanceTimestamps.size()).getDistance() - distanceTimestamps.get(0).getDistance();
+                // If + moving away, if - moving towards
+                System.out.println("Delta: " + delta);
+
+                if (sonic.isTooClose()) {
+                    Main.handleInput(ModuleEnum.HEAD, Main.TOO_CLOSE);
+                } else if (sonic.isTooFar()) {
+                    Main.handleInput(ModuleEnum.HEAD, Main.TOO_FAR);
+                } else if (sonic.isInRange()) {
+                    Main.handleInput(ModuleEnum.HEAD, Main.IN_RANGE);
                 }
             }
+        }
+    }
+
+    public class DistanceTimestamp {
+
+        private double timestamp;
+        private double distance;
+
+        public DistanceTimestamp(double timestamp, double distance) {
+            this.timestamp = timestamp;
+            this.distance = distance;
+        }
+
+        public double getTime() {
+            return timestamp;
+        }
+
+        public double getDistance() {
+            return distance;
         }
     }
 
