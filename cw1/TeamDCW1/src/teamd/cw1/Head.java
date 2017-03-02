@@ -1,137 +1,85 @@
 package teamd.cw1;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import lejos.hardware.motor.EV3MediumRegulatedMotor;
 import lejos.hardware.port.Port;
-import lejos.hardware.sensor.EV3TouchSensor;
 import lejos.hardware.sensor.EV3UltrasonicSensor;
+import lejos.utility.Delay;
+import teamd.cw1.enums.DirectionEnum;
 
 /**
  * Created by melaus on 20/02/2017.
  */
 public class Head {
-
-    private static final String FRONT = "front";
-    private static final String LEFT = "left";
-    private static final String RIGHT = "right";
-
-    // Initialisation
-    private EV3UltrasonicSensor sonic_module;
-    private SimpleSonic sonic;
-
-    private EV3MediumRegulatedMotor motor;
-
-    private HeadThread headThread;
-
-    private double lastDistance;
-
-    private Date date = new Date();
-
-    private List<DistanceTimestamp> distanceTimestamps = new ArrayList<DistanceTimestamp>();
-
+	
+	private final EV3UltrasonicSensor sonic_module;
+	private final SimpleSonic sonic;
+	private final EV3MediumRegulatedMotor motor;
+	
+	private final double minDistance;
+	private final double maxDistance;
+	private final double midDistance;
+	private final double wallNotFoundThreshold;
+	private DirectionEnum direction = DirectionEnum.FRONT;
+	
     /*
      * CONSTRUCTOR
      */
-    public Head(
-            Port motor_port, Port sonic_port,
-            double minDistance, double maxDistance) {
-        this.sonic_module = new EV3UltrasonicSensor(sonic_port);
-        this.sonic = new SimpleSonic(sonic_module.getDistanceMode(), minDistance, maxDistance);
+    public Head(Port motor_port, Port sonic_port, double minDistance, double maxDistance, float headSpeed, float wallNotFoundThreshold) {
+    	
+    	this.sonic_module = new EV3UltrasonicSensor(sonic_port);
+    	this.sonic = new SimpleSonic(sonic_module.getDistanceMode());       
+    	
+    	this.motor = new EV3MediumRegulatedMotor(motor_port);
+    	motor.setSpeed(headSpeed);
 
-        this.motor = new EV3MediumRegulatedMotor(motor_port);
-
-        // Thread
-        this.headThread = new HeadThread();
-        this.headThread.start();
+    	this.minDistance = minDistance;
+    	this.maxDistance = maxDistance;
+    	this.midDistance = (maxDistance + minDistance) / 2f;
+    	this.wallNotFoundThreshold = wallNotFoundThreshold;
     }
 
-
-    /*
-     * FUNCTIONS
-     */
-    public void look(int angle, String direction) {
-        // get angle to look at based on desired direction
-        angle *= direction.equals(LEFT) ? -2 : (direction.equals(RIGHT) ? 2 : 0);
-
-        if (angle != 0) {
-            motor.rotate(angle);
-        } else {
-            motor.rotateTo(0);
-        }
+    public DirectionEnum getDirection() {
+    	return direction;
     }
-
+    
     public double getDistance() {
-        return sonic.getDistance();
+    	return sonic.getDistance();
     }
-
-
-    /*
-     * THREAD
-     */
-    public class HeadThread extends Thread {
-        public HeadThread() {
-            // TODO: do something
-        }
-
-        public void run() {
-            while (true) {
-
-                double distance = getDistance();
-                double time = date.getTime();
-                if (distance == lastDistance) return;
-                lastDistance = distance;
-
-                Collection<DistanceTimestamp> result = new ArrayList<DistanceTimestamp>();
-                for (int i = 0; i < distanceTimestamps.size(); i++) {
-                    DistanceTimestamp dt = distanceTimestamps.get(i);
-                    if (time - dt.getTime() < 1000) {
-                        result.add(dt);
-                    }
-                }
-
-                distanceTimestamps = (List<DistanceTimestamp>) result;
-
-                DistanceTimestamp dt = new DistanceTimestamp(date.getTime(), distance);
-                distanceTimestamps.add(dt);
-
-                double delta = distanceTimestamps.get(distanceTimestamps.size()).getDistance() - distanceTimestamps.get(0).getDistance();
-                // If + moving away, if - moving towards
-                System.out.println("Delta: " + delta);
-
-                if (sonic.isTooClose()) {
-                    Main.handleInput(ModuleEnum.HEAD, Main.TOO_CLOSE);
-                } else if (sonic.isTooFar()) {
-                    Main.handleInput(ModuleEnum.HEAD, Main.TOO_FAR);
-                } else if (sonic.isInRange()) {
-                    Main.handleInput(ModuleEnum.HEAD, Main.IN_RANGE);
-                }
-            }
-        }
+    
+    public boolean isTooClose(double distance) {
+    	return distance < minDistance;
     }
-
-    public class DistanceTimestamp {
-
-        private double timestamp;
-        private double distance;
-
-        public DistanceTimestamp(double timestamp, double distance) {
-            this.timestamp = timestamp;
-            this.distance = distance;
-        }
-
-        public double getTime() {
-            return timestamp;
-        }
-
-        public double getDistance() {
-            return distance;
-        }
+    
+    public boolean isTooFar(double distance) {
+    	return distance > maxDistance;
     }
-
+    
+    public boolean isPastWallThreshold(double distance) {
+    	return distance > wallNotFoundThreshold;
+    }
+    
+    public boolean isInRangeClose(double distance) {
+    	return distance >= minDistance && distance < midDistance;
+    }
+    
+    public boolean isInRangeFar(double distance) {
+    	return distance >= midDistance && distance <= maxDistance;
+    }
+    
+    public void look(DirectionEnum direction) {
+    	this.direction = direction;
+    	switch (direction) {
+    	case FRONT :
+    		motor.rotateTo(0);
+    		break;
+    	case LEFT :
+    		motor.rotateTo(-100);
+    		break;
+    	case RIGHT :
+    		motor.rotateTo(100);
+    		break;
+    	}
+    	
+    	Delay.msDelay(250);
+    }
 }
