@@ -18,13 +18,15 @@ public class Head {
 	private final double minDistance;
 	private final double maxDistance;
 	private final double midDistance;
-	private final double wallNotFoundThreshold;
+	private final double concaveWallThreshold;
+	private final double convexWallThreshold;
 	private DirectionEnum direction = DirectionEnum.FRONT;
 	
     /*
      * CONSTRUCTOR
      */
-    public Head(Port motor_port, Port sonic_port, double minDistance, double maxDistance, float headSpeed, float wallNotFoundThreshold) {
+    public Head(Port motor_port, Port sonic_port, double minDistance, double maxDistance,
+    		float headSpeed, float concaveWallThreshold, float convexWallThreshold) {
     	
     	this.sonic_module = new EV3UltrasonicSensor(sonic_port);
     	this.sonic = new SimpleSonic(sonic_module.getDistanceMode());       
@@ -35,7 +37,9 @@ public class Head {
     	this.minDistance = minDistance;
     	this.maxDistance = maxDistance;
     	this.midDistance = (maxDistance + minDistance) / 2f;
-    	this.wallNotFoundThreshold = wallNotFoundThreshold;
+    	
+    	this.concaveWallThreshold = concaveWallThreshold;
+    	this.convexWallThreshold = convexWallThreshold;
     }
 
     public DirectionEnum getDirection() {
@@ -53,17 +57,18 @@ public class Head {
     public boolean isTooFar(double distance) {
     	return distance > maxDistance;
     }
-    
-    public boolean isPastWallThreshold(double distance) {
-    	return distance > wallNotFoundThreshold;
+ 
+    public boolean isWithinConcaveWallThreshold(double distance) {
+    	return distance <= concaveWallThreshold;
     }
     
-    public boolean isInRangeClose(double distance) {
-    	return distance >= minDistance && distance < midDistance;
+    
+    public boolean isWithinConvexWallThreshold(double distance) {
+    	return distance <= convexWallThreshold;
     }
     
-    public boolean isInRangeFar(double distance) {
-    	return distance >= midDistance && distance <= maxDistance;
+    public boolean isInRange(double distance) {
+    	return distance >= minDistance && distance < maxDistance;
     }
     
     public void look(DirectionEnum direction) {

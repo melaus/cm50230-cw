@@ -1,6 +1,5 @@
 package teamd.cw1;
 
-import java.util.Date;
 
 import lejos.hardware.motor.EV3LargeRegulatedMotor;
 import lejos.hardware.port.Port;
@@ -15,11 +14,6 @@ public class Motors {
     private final int defaultMotorSpeed;
     private final float motorAngleRatio;
     private final float smoothTurnSharpness;
-    
-//    private ForwardThread thread;
-//    private Date date;
-//    private long smoothTurnStartTime = -1L;
-//    private DirectionEnum smoothTurningDirection;
 
     /*
      * Constructor
@@ -32,16 +26,12 @@ public class Motors {
         this.defaultMotorSpeed = motorSpeed;   
         this.motorAngleRatio = motorAngleRatio;
         this.smoothTurnSharpness = smoothTurnSharpness;
-        
-//        this.thread = new ForwardThread();
-//        this.thread.start();
     }
 
     /*
      * FUNCTIONS
      */
     public void forward() {
-//    	thread.stopTimer();
     	
     	l_motor.setSpeed(defaultMotorSpeed);
     	r_motor.setSpeed(defaultMotorSpeed);
@@ -50,7 +40,6 @@ public class Motors {
     }
     
     public void reverse() {
-//    	thread.stopTimer();
     	
     	l_motor.setSpeed(defaultMotorSpeed);
     	r_motor.setSpeed(defaultMotorSpeed);
@@ -60,8 +49,7 @@ public class Motors {
     
     public void rotate(int angle, DirectionEnum direction) {
     	
-    	System.out.println("ROTATING");
-//    	thread.stopTimer();
+    	System.out.println("ROTATING " + angle + direction.toString());
     	
         // Translates desired rotation magnitude and direction of robot into wheel rotation
         angle *= direction.equals(DirectionEnum.LEFT) ? motorAngleRatio : -motorAngleRatio;
@@ -70,13 +58,8 @@ public class Motors {
     }
 
     public void smoothTurn(DirectionEnum direction) {
-//    	    	
-//    	if (smoothTurnStartTime < 0) {
-//    		System.out.println("START SMOOTH TURN " + direction.toString());
-//    		date = new Date();
-//    		smoothTurnStartTime = date.getTime();
-//    		smoothTurningDirection = direction;
-//    	}
+    	
+    	System.out.println("SMOOTH TURNING: " + direction.toString());
     	
         float speed = defaultMotorSpeed * smoothTurnSharpness;
 
@@ -93,62 +76,14 @@ public class Motors {
 				break;
         }
     }
-    
-//    public void smoothForward() {
-//    	if (smoothTurnStartTime != -1L) {
-//    		thread.startTimer((long)(smoothTurnStartTime / 2f));
-//    		smoothTurn(opposite(smoothTurningDirection));
-//    		System.out.println("SMOOTH FORWARD " + opposite(smoothTurningDirection).toString());
-//    	} else {
-//    		forward();
-//    	}
-//    }
 
     public void recoverFromObstacle(DirectionEnum direction) {
+    	
+    	System.out.println("RECOVERING FROM OBSTACLE");
+    	
         // reverse and turn an angle
         this.reverse();
         Delay.msDelay(1000);
         this.rotate(45, direction);
-    }
-    
-//    public class ForwardThread extends Thread {
-//    	
-//    	private long forwardTime = -1L;
-//    	
-//    	public void startTimer(long time) {
-//    		smoothTurnStartTime = -1L;
-//    		this.forwardTime = new Date().getTime() + time;
-//    	}
-//    	
-//    	public void stopTimer() {
-//    		smoothTurnStartTime = -1L;
-//    		this.forwardTime = -1L;
-//    	}
-//    	
-//        public void run() {
-//            while (true) {
-//                if (forwardTime != -1L) {
-//                	long currentTime = new Date().getTime();
-//                	
-//                	if (currentTime >= forwardTime) {
-//                		System.out.println("FORWARD TIMER EXPIRED");
-//                		forwardTime = -1L;
-//                		forward();
-//                	}
-//                }
-//            }
-//        }
-//    }
-    
-    private DirectionEnum opposite(DirectionEnum direction) {
-    	switch (direction) {
-			case LEFT :
-				return DirectionEnum.RIGHT;
-			case RIGHT :
-				return DirectionEnum.LEFT;
-			case FRONT :
-			default:
-				return null;
-		}
     }
 }

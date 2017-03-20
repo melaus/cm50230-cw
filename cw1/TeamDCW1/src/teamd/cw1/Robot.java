@@ -15,16 +15,21 @@ import teamd.cw1.enums.StatusEnum;
 
 public class Robot {
 
+	// Test parameters
+	private static final int[] DEFAULT_MOTOR_SPEEDS = {200, 400, 600};
+	private static final float[] DEFAULT_MIN_WALL_FOLLOW_DISTANCES = {0.2f, 0.3f, 0.4f};
+
     // Private constants
-	private static final float MIN_WALL_DISTANCE = 0.25f;
-	private static final float MAX_WALL_DISTANCE = 0.3f;
-	private static final float WALL_NOT_FOUND_THRESHOLD = 0.5f;
+	private static final int DEFAULT_MOTOR_SPEED = DEFAULT_MOTOR_SPEEDS[1];
+	private static final float MIN_WALL_FOLLOW_DISTANCE = DEFAULT_MIN_WALL_FOLLOW_DISTANCES[1];
+	private static final float MAX_WALL_FOLLOW_DISTANCE = MIN_WALL_FOLLOW_DISTANCE + 0.05f;
+	private static final float CONCAVE_WALL_THRESHOLD = MIN_WALL_FOLLOW_DISTANCE + 0.1f;
+	private static final float CONVEX_WALL_THRESHOLD = MIN_WALL_FOLLOW_DISTANCE + 0.3f;
 	
 	private static final int HEAD_SPEED = 1200;
-	private static final int HEAD_ROTATION_TIME_INTERVAL = 1000;
-	private static final int DEFAULT_MOTOR_SPEED = 200;
-	private static final float MOTOR_ANGLE_RATIO = 2.05f;
-	private static final float SMOOTH_TURN_SHARPNESS = 0.9f;
+	private static final int HEAD_ROTATION_TIME_INTERVAL = 500;
+	private static final float MOTOR_ANGLE_RATIO = 2.10f;
+	private static final float SMOOTH_TURN_SHARPNESS = 0.95f;
     private static final int RIGHT_ANGLE = 90;
     
     private static final DirectionEnum wallSide = DirectionEnum.RIGHT;
@@ -47,8 +52,16 @@ public class Robot {
     	System.setOut(printStreamToFile);
 
     	try {
-    		head = new Head(MotorPort.B, SensorPort.S3, MIN_WALL_DISTANCE, MAX_WALL_DISTANCE, HEAD_SPEED, WALL_NOT_FOUND_THRESHOLD);
-	        motors = new Motors(MotorPort.C, MotorPort.A, DEFAULT_MOTOR_SPEED, MOTOR_ANGLE_RATIO, SMOOTH_TURN_SHARPNESS);
+    		head = new Head(MotorPort.B, SensorPort.S3,
+    				MIN_WALL_FOLLOW_DISTANCE,
+    				MAX_WALL_FOLLOW_DISTANCE,
+    				HEAD_SPEED,
+    				CONCAVE_WALL_THRESHOLD,
+    				CONVEX_WALL_THRESHOLD);
+	        motors = new Motors(MotorPort.C, MotorPort.A,
+	        		DEFAULT_MOTOR_SPEED,
+	        		MOTOR_ANGLE_RATIO,
+	        		SMOOTH_TURN_SHARPNESS);
 	        touch = new TouchSensors(SensorPort.S1, SensorPort.S2);
     	} catch (Exception e) {
     		System.out.println(e.getMessage());
@@ -57,7 +70,7 @@ public class Robot {
         
         exitThread = new ExitThread();
         exitThread.start();
-              
+        
         startRobot();
     }
     
@@ -70,19 +83,7 @@ public class Robot {
 
 	    	// Distance
 	    	double distance = head.getDistance();
-	    	System.out.println(distance);
-	    	
-	    	if (distance >= 0) {
-		        if (head.isTooClose(distance)) {
-		            handleInput(CommandEnum.TOO_CLOSE, distance);
-		        } else if (head.isTooFar(distance)) {
-		        	handleInput(CommandEnum.TOO_FAR, distance);
-		        } else if (head.isInRangeClose(distance)) {
-		        	handleInput(CommandEnum.IN_RANGE_CLOSE, distance);
-		        } else if (head.isInRangeFar(distance)) {
-		        	handleInput(CommandEnum.IN_RANGE_FAR, distance);
-		        }
-	    	}
+		    handleInput(CommandEnum.DISTANCE, distance);
             
             // Head movement
             Date date = new Date();
@@ -120,20 +121,22 @@ public class Robot {
     }
     
     private void findingWall(CommandEnum command, double distance) {
+    	Log(command.toString(), String.valueOf(distance));
+
     	switch (command) {
-    		case TOO_CLOSE:
-    		case IN_RANGE_CLOSE:
-    			status = StatusEnum.FOLLOWING_WALL;
-    	    	System.out.println("FOUND WALL: " + distance);
-    			motors.rotate(RIGHT_ANGLE, opposite(wallSide));
-				head.look(wallSide);
-    			motors.forward();
-    			break;
+	    	case DISTANCE:
+	    		if (head.isWithinConcaveWallThreshold(distance)) {
+	    			status = StatusEnum.FOLLOWING_WALL;
+	    			System.out.println("FOUND WALL: " + distance);
+	    			motors.rotate(RIGHT_ANGLE, opposite(wallSide));
+	    			head.look(wallSide);
+	    			motors.forward();
+	    		}
+	    		break;
+
 			case TOUCH_CONTACT:
 				handleTouchContact();
 				break;
-			case TOO_FAR:
-			case IN_RANGE_FAR:
 			case INTERVAL_REACHED:
 			default:
 				break;
@@ -141,57 +144,55 @@ public class Robot {
     }   
     
     private void followingWall(CommandEnum command, double distance) {
+    	Log(command.toString(), String.valueOf(distance));
+
     	switch (command) {
-    		case TOO_CLOSE :
-    			motors.smoothTurn(opposite(wallSide));  
-    			justTurnedConvexCorner = false;
-    			break;
-    			
-    		case TOO_FAR :
-    			if (justTurnedConvexCorner) return;
-    			
-				if (head.isPastWallThreshold(distance)) {
-					Delay.msDelay(500);
-					if (head.getDistance() < WALL_NOT_FOUND_THRESHOLD) return;
-					System.out.println("FOUND CONVEX CORNER: " + distance);
-					motors.rotate(RIGHT_ANGLE, wallSide);
-					justTurnedConvexCorner = true;
-					motors.forward();
-				} else {
+	    	case DISTANCE:
+	    		if (head.isTooClose(distance)) {
+	    			motors.smoothTurn(opposite(wallSide));  
+	    			justTurnedConvexCorner = false;
+	    		} else if (head.isTooFar(distance) && head.isWithinConvexWallThreshold(distance)) {
 					motors.smoothTurn(wallSide); 
-				}
-		    	break;
-		    	
-    		case IN_RANGE_CLOSE:
-    		case IN_RANGE_FAR:
-    			motors.forward();
-//    			motors.smoothForward();
-    			justTurnedConvexCorner = false;
-		    	break;
+					justTurnedConvexCorner = false;
+	    		} else if (!head.isWithinConvexWallThreshold(distance)) {
+	    			if (justTurnedConvexCorner) return;
+		    		Delay.msDelay(500);
+		    		if (head.isWithinConvexWallThreshold(head.getDistance())) return;
+		    		
+		    		System.out.println("FOUND CONVEX CORNER: " + distance);
+		    		motors.rotate(RIGHT_ANGLE, wallSide);
+		    		justTurnedConvexCorner = true;
+		    		motors.forward();
+	    		} else if (head.isInRange(distance)) {
+	    			motors.forward();
+	    			justTurnedConvexCorner = false;
+	    		}
+	    		break;
 		    	
 			case INTERVAL_REACHED:
 				head.look(DirectionEnum.FRONT);
 				System.out.println("LOOKING FORWARDS");
 				status = StatusEnum.LOOKING_FORWARD;
 				break;
-				
 			case TOUCH_CONTACT:
 				handleTouchContact();
-				break;
-				
+				break;		
 			default:
 				break;
     	}
     }
     
     private void lookingForward(CommandEnum command, double distance) {
+    	Log(command.toString(), String.valueOf(distance));
     	switch (command) {
-    		case TOO_CLOSE:
-			case IN_RANGE_CLOSE :
-				System.out.println("FOUND CONCAVE CORNER: " + distance);
-    			motors.rotate(RIGHT_ANGLE, opposite(wallSide));
-    			status = StatusEnum.FOLLOWING_WALL;
-    			motors.forward();
+    		case DISTANCE:
+    			if (head.isWithinConcaveWallThreshold(distance)) {
+    				System.out.println("FOUND CONCAVE CORNER: " + distance);
+    				motors.rotate(RIGHT_ANGLE, opposite(wallSide));
+    				status = StatusEnum.FOLLOWING_WALL;
+	    			justTurnedConvexCorner = false;
+    				motors.forward();
+    			}
     			break;
 			case INTERVAL_REACHED:
 				head.look(wallSide);
@@ -201,8 +202,6 @@ public class Robot {
 			case TOUCH_CONTACT:
 				handleTouchContact();
 				break;
-			case TOO_FAR :
-			case IN_RANGE_FAR :
 			default:
 				break;
     	}
@@ -213,12 +212,12 @@ public class Robot {
     	motors.forward();
     }
 
-//    public void Log(String command, String data) {
-//    	String logString = "Status: " + status.toString()
-//    			+ " Command: " + command
-//    			+ " Data: " + data;
-//    	System.out.println(logString);
-//    }
+    public void Log(String command, String data) {
+    	String logString = "Status: " + status.toString()
+    			+ " Command: " + command
+    			+ " Data: " + data;
+    	System.out.println(logString);
+    }
 
     private DirectionEnum opposite(DirectionEnum direction) {
     	switch (direction) {
