@@ -19,3 +19,11 @@ lego/
 .settings/
 TeamDCW1.iml
 .DS_Store
+
+*.swp
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf
