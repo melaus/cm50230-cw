@@ -30,6 +30,13 @@
 ;;            mutation?          ;; if off, none
 ;;            freq-of-mutation   ;; if mutation? on, then 1 in 10 raised to this will be a different species than their parents
 
+;;            ;; new ;;
+;;            num-subpopulation           ;; G - number of subpopulations
+;;            param-skill                 ;; alpha - governs loss of skill due to imperfect learning
+;;            param-skill-greater         ;; beta - parameter to allow some learners to achieve a greater z value allowed by the model
+;;            density                     ;; density of subpopulations
+;;            num-turtles-per-sub         ;; a list to store the number of turtles in each subpopulation
+
 
 ;;     Ivana wrote code for this, but had it set to 0 for the paper.  If we ever experiment with it, make into a slider.
 ;;            knowledge-transfer          ;; for every item, the probability that the parent will teach the child
@@ -47,6 +54,14 @@ globals [ extra-list                  ;; holds the values for the different type
           foodstrat-graph-const       ;; multiplier based on num-food-strat for the combined plot
           tc                          ; social turtle colour
           ktc                         ; turtles-that-know-something-you-are-looking-at colour
+
+          ;; new ;;
+          mean-skill                  ;; mean skill level across all subpopulations and their individuals
+          list-centroids-x            ;; x coordinates of centroids
+          list-centroids-y            ;; y coordinates of centroids
+          sub-radius                  ;; raidus of subpopulations
+          all-pos-x                   ;; the x-coordinates of each agent
+          all-pos-y                   ;; the y-coordinates of each agent
           ]
 
 
@@ -55,6 +70,10 @@ patches-own [ here-list ]   ;;hold a value describing the type of food that is o
 turtles-own [ age
               energy
               knowhow
+
+              ;; new ;;
+              skill  ;; z_i
+              belong-subpop ;; population it belongs to
                ]
 
 breed [ talker a-talker ]
@@ -68,9 +87,9 @@ to setup
   ;; of the procedure.)
   __clear-all-and-reset-ticks
   setup-globals
-  setup-patches
+  ;setup-patches
   setup-agents
-  setup-plot
+  ;setup-plot
 end
 
 to setup-globals
@@ -95,33 +114,33 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; at setup time, we run what happens normally a few times to get some food grown up
-to setup-patches
-ask patches
-   [ set here-list (n-values num-food-strat [ 0 ])     ;; all patches are empty
-     repeat 25 [fill-patches-regular fill-patches-special]
-     update-patches
-   ]
-end
-
-; on every cycle, each patch has a food-replacement-rate% chance of being filled with grass, whether it had food there before or not.
-to fill-patches-regular
-if (random-float 100 < food-replacement-rate)
-  [set here-list (n-values num-food-strat [ 0 ])     ;; empty whatever is on the patch
-   set here-list (add-food 0 here-list)]             ;; add regular food
-end
-
-; on every cycle, each patch has a (food-replacement-rate * ratio-of-special-foods)% chance of being filled with a special food, though it
-; may immediately afterwards get replaced by grass.
-to fill-patches-special
-if (sum here-list) = 0 ;; if the patch is empty
-  [ if (num-special-food-strat != 0 ) and ((random-float 100 ) < (food-replacement-rate * (2 ^ ratio-of-special-foods)))
-    [ set here-list (n-values num-food-strat [ 0 ])                                 ;; empty whatever is on the patch
-      set here-list (add-food ((random num-special-food-strat) + 1) here-list)] ]   ;; add one of the food types
-end
-
-to update-patches
-set pcolor (40 + (first here-list * 3) + (sum (butfirst here-list) * 5))
-end
+;to setup-patches
+;ask patches
+;   [ set here-list (n-values num-food-strat [ 0 ])     ;; all patches are empty
+;     repeat 25 [fill-patches-regular fill-patches-special]
+;     update-patches
+;   ]
+;end
+;
+;; on every cycle, each patch has a food-replacement-rate% chance of being filled with grass, whether it had food there before or not.
+;to fill-patches-regular
+;if (random-float 100 < food-replacement-rate)
+;  [set here-list (n-values num-food-strat [ 0 ])     ;; empty whatever is on the patch
+;   set here-list (add-food 0 here-list)]             ;; add regular food
+;end
+;
+;; on every cycle, each patch has a (food-replacement-rate * ratio-of-special-foods)% chance of being filled with a special food, though it
+;; may immediately afterwards get replaced by grass.
+;to fill-patches-special
+;if (sum here-list) = 0 ;; if the patch is empty
+;  [ if (num-special-food-strat != 0 ) and ((random-float 100 ) < (food-replacement-rate * (2 ^ ratio-of-special-foods)))
+;    [ set here-list (n-values num-food-strat [ 0 ])                                 ;; empty whatever is on the patch
+;      set here-list (add-food ((random num-special-food-strat) + 1) here-list)] ]   ;; add one of the food types
+;end
+;
+;to update-patches
+;set pcolor (40 + (first here-list * 3) + (sum (butfirst here-list) * 5))
+;end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;turtles
@@ -130,15 +149,87 @@ end
 to setup-agents
   set-default-shape talker "loud"
   set-default-shape silent "silent"
-  crt start-num-turtles                                   ;; create given number of turtles
-  ask turtles [set age random lifespan                    ;; set age to hatchlings (fput kind hatchlingsrandom number < lifespan
-               setxy (random world-width)                 ;; randomize the turtle locations
-                        (random world-height)
-               set energy (random-normal 18 0.9 )
-               init-soc-vars
-               set color tc ]
+  set-pos
+
+  crt num-turtles-per-sub * num-subpopulations                                  ;; create given number of turtles
+  (foreach (sort turtles) all-pos-x all-pos-y  [
+    ask ?1 [;set age random lifespan                               ;; set age to hatchlings (fput kind hatchlingsrandom number < lifespan
+            setxy (?2) (?3)                                       ;; set centroid position
+            ;;set energy (random-normal 18 0.9 )
+            ;;init-soc-vars
+            set skill 10.0
+            set belong-subpop 1
+            ;;;; set
+            set color tc
+    ]
+  ])
 end
 
+;; create the positions of each agent
+to set-pos
+  create-centroids
+  ;set-num-turtles-per-sub
+
+  let num-agents (num-turtles-per-sub * num-subpopulations)
+  let ctr 0
+  set all-pos-x n-values num-agents [0]
+  set all-pos-y n-values num-agents [0]
+  (foreach list-centroids-x list-centroids-y [
+      ; add centroid to list
+      let cur-centroid-x ?1
+      let cur-centroid-y ?2
+      set all-pos-x replace-item ctr all-pos-x ?1
+      set all-pos-y replace-item ctr all-pos-y ?2
+      set ctr (ctr + 1)
+
+      ; add other agents in the subpopulation
+      let rx-float 0
+      let ry-float 0
+      let xlim 4
+      let ylim 4
+
+      foreach n-values (num-turtles-per-sub - 1) [ ? + 1 ] [
+        ; set limit to positive or negative based on condition
+        ifelse (random 2) = 0 [set xlim -2] [set xlim 2]
+        ifelse (random 2) = 0 [set ylim -2] [set ylim 2]
+
+        ; find an offset > 0
+        set rx-float random-float xlim
+        set ry-float random-float ylim
+        while [rx-float = 0 or ry-float = 0] [
+          set rx-float random-float xlim
+          set ry-float random-float ylim
+        ]
+
+        ; add to coordinate lists
+        set all-pos-x replace-item ctr all-pos-x (rx-float + cur-centroid-x)
+        set all-pos-y replace-item ctr all-pos-y (ry-float + cur-centroid-y)
+        set ctr (ctr + 1)
+      ]
+  ])
+end
+
+;; create centroids of subpopulations
+to create-centroids
+  set list-centroids-x n-values num-subpopulations [0] ; reset list
+  set list-centroids-y n-values num-subpopulations [0] ; reset list
+  foreach n-values (num-subpopulations) [ (? - 1) + 1 ] [
+     set list-centroids-x ((replace-item (?1) (list-centroids-x) (calc-centroid-norm-val)))
+     set list-centroids-y ((replace-item (?1) (list-centroids-y) (calc-centroid-norm-val)))
+  ]
+end
+
+;; calculate a value taken from the normal distribution with the given density
+to-report calc-centroid-norm-val
+  let result random-normal 0 subpopulation-density
+  ; bound it to be within environment boundaries
+  while [result > max-pxcor or result < min-pxcor or result > max-pycor or result < min-pycor] [
+    set result random-normal 0 subpopulation-density
+  ]
+  report result
+end
+
+;;;; we don't care about breed and mutation
 to init-soc-vars
   ;; roll dice for breed
   ifelse ((random 100) < (starting-proportion-altruists * 100))  [ set breed talker ] [ set breed silent ]
@@ -167,15 +258,15 @@ to go
                   ]
               ]
 ;  if (food-depletes?) [ ; conditionals slow things down, but we used this initially to debug.  But it's not very ecological to be able to eat without destroying the plants!
-    ask patches
-      [ fill-patches-special
-        fill-patches-regular
-        update-patches ]
+;    ask patches
+;      [ fill-patches-special
+;        fill-patches-regular
+;        update-patches ]
 ;      ] ; if food depletes
 
  if remainder ticks 8 = 0 [update-plot]   ; only update plots one tick in 8.  Note you can comment this out to make it run faster too.
-  ; if (count turtles = 0) [(show (word "turtles became extinct at:" ticks)) stop] ;; never happens so excised for speed
-;  if (ticks = simulation-runtime) [(show "time's up!") stop]
+   if (count turtles = 0) [(show (word "turtles became extinct at:" ticks)) stop] ;; never happens so excised for speed
+  if (ticks = simulation-runtime) [(show "time's up!") stop]
 end
 
 
@@ -223,7 +314,6 @@ to live-or-die
                    die
                  ]
 end
-
 
 to give-birth
 
@@ -631,9 +721,9 @@ ifelse (any? silent with [sum-know-how = sum knowhow])
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-365
+446
 10
-1343
+1424
 1009
 60
 60
@@ -675,10 +765,10 @@ NIL
 1
 
 SLIDER
-10
-159
-226
-192
+16
+333
+232
+366
 starting-proportion-altruists
 starting-proportion-altruists
 0
@@ -707,10 +797,10 @@ NIL
 1
 
 PLOT
-6
-716
-502
-1061
+-277
+841
+219
+1186
 plot-all
 NIL
 NIL
@@ -729,10 +819,10 @@ PENS
 "prop. talk" 1.0 0 -7500403 true "" ""
 
 MONITOR
-16
-604
-107
-649
+18
+737
+109
+782
 NIL
 energy-talkers
 0
@@ -740,10 +830,10 @@ energy-talkers
 11
 
 MONITOR
-111
-604
-214
-649
+113
+737
+216
+782
 energy-silents
 energy-silent
 0
@@ -751,10 +841,10 @@ energy-silent
 11
 
 MONITOR
-17
-653
-132
-698
+19
+786
+134
+831
 ratio talker/silent
 (count talker)/((count silent) + (count talker))
 3
@@ -762,10 +852,10 @@ ratio talker/silent
 11
 
 BUTTON
-11
-544
-116
-577
+13
+677
+118
+710
 who knows?
 flip-color
 NIL
@@ -779,10 +869,10 @@ NIL
 1
 
 BUTTON
-250
-504
-319
-537
+252
+637
+321
+670
 color off
 color-off
 NIL
@@ -813,10 +903,10 @@ NIL
 1
 
 PLOT
-508
-723
-708
-873
+225
+848
+425
+998
 t-s-knowhow
 # things known
 #  agents
@@ -832,10 +922,10 @@ PENS
 "talker" 1.0 1 -5825686 true "" ""
 
 BUTTON
-273
-661
-387
-694
+275
+794
+389
+827
 NIL
 show-values
 NIL
@@ -849,10 +939,10 @@ NIL
 1
 
 BUTTON
-155
-661
-259
-694
+157
+794
+261
+827
 add silents
 get-silents
 NIL
@@ -866,80 +956,80 @@ NIL
 1
 
 SLIDER
-12
-238
-168
-271
+18
+412
+174
+445
 run-dist
 run-dist
 0
 5
-1.5
+0.25
 0.25
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-198
-236
-335
-281
+194
+421
+380
+466
 travel-mode
 travel-mode
-"exact distance" "gamma distribution" "smooth distribution" "warp"
-2
+"exact distance" "gamma distribution" "smooth distribution" "warp" "gaussian random walk"
+0
 
 SLIDER
-10
-196
-150
-229
+16
+370
+156
+403
 num-food-strat
 num-food-strat
 1
 20
-8
+7
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-172
-196
-314
-229
+178
+370
+320
+403
 lifespan
 lifespan
 5
 100
-65
+5
 5
 1
 NIL
 HORIZONTAL
 
 SLIDER
-11
-117
-199
-150
+17
+291
+205
+324
 start-num-turtles
 start-num-turtles
 0
 4000
-750
+250
 250
 1
 NIL
 HORIZONTAL
 
 PLOT
-509
-876
-708
-1026
+226
+1001
+425
+1151
 cost of speaking
 # things known
 avg. energy
@@ -955,10 +1045,10 @@ PENS
 "talker" 1.0 1 -5825686 true "" ""
 
 SLIDER
-3
-334
-269
-367
+9
+508
+275
+541
 food-replacement-rate
 food-replacement-rate
 0
@@ -970,10 +1060,10 @@ food-replacement-rate
 HORIZONTAL
 
 SLIDER
-3
-370
-306
-403
+9
+544
+312
+577
 ratio-of-special-foods
 ratio-of-special-foods
 -8
@@ -985,25 +1075,25 @@ ratio-of-special-foods
 HORIZONTAL
 
 SLIDER
-109
-420
-371
-453
+112
+585
+374
+618
 freq-of-mutation
 freq-of-mutation
 0
 10
-5
+10
 1
 1
 (1 in 10 raised to this)
 HORIZONTAL
 
 SWITCH
-6
-420
-106
-453
+9
+585
+109
+618
 mutation?
 mutation?
 0
@@ -1011,10 +1101,10 @@ mutation?
 -1000
 
 SLIDER
-11
-276
-175
-309
+17
+450
+181
+483
 broadcast-radius
 broadcast-radius
 0
@@ -1026,10 +1116,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-285
-603
-342
-648
+287
+736
+344
+781
 NIL
 ticks
 17
@@ -1037,10 +1127,10 @@ ticks
 11
 
 MONITOR
-121
-532
-206
-577
+123
+665
+208
+710
 knows what
 show-knowledge
 17
@@ -1048,10 +1138,10 @@ show-knowledge
 11
 
 BUTTON
-215
-544
-355
-577
+217
+677
+357
+710
 who knows most?
 knowledge-gradient
 NIL
@@ -1065,15 +1155,105 @@ NIL
 1
 
 MONITOR
-10
-495
-103
-540
+12
+628
+105
+673
 NIL
 count turtles
 0
 1
 11
+
+SLIDER
+11
+77
+379
+110
+num-subpopulations
+num-subpopulations
+0
+300
+10
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+192
+153
+379
+186
+param-skill-greater
+param-skill-greater
+0
+1
+0.06
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+12
+152
+184
+185
+param-skill
+param-skill
+0
+4
+0.5
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+11
+109
+379
+142
+subpopulation-density
+subpopulation-density
+0
+200
+50
+1
+1
+(higher value = less dense)
+HORIZONTAL
+
+SLIDER
+12
+197
+379
+230
+num-turtles-per-sub
+num-turtles-per-sub
+0
+200
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+11
+235
+200
+268
+normal-random-walk
+normal-random-walk
+0.01
+2
+1
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
