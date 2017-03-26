@@ -20,3 +20,11 @@ lego/
 TeamDCW1.iml
 .DS_Store
 cw1/
+
+*.swp
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf
