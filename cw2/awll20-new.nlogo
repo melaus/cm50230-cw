@@ -364,7 +364,7 @@ to give-birth
                         ;; if there were going to be cultural maternal effects, the code would go here
 
                         get-infant-knowledge  ; for no particular reason except code efficiency, the agents learn at birth whatever they would individually discover in their lifetime
-                        ;;mutate-or-not ; may change breed...
+                        mutate-or-not ; may change breed...
                         ]
              set energy (energy * 0.8)  ; keep the overall energy the same
 
@@ -402,7 +402,7 @@ to move-migrate
 
   setxy (item 0 new-coor) (item 1 new-coor)
   set quad new-quad
-  ;print (word "original quad: " tmp-quad " new quad: " quad)
+  ;;print (word "original quad: " tmp-quad " new quad: " quad)
 end
 
 ;; get the distance to walk in x and y
@@ -1179,7 +1179,7 @@ freq-of-mutation
 freq-of-mutation
 0
 10
-5
+2
 1
 1
 (1 in 10 raised to this)
@@ -1300,7 +1300,7 @@ freq-of-migration
 freq-of-migration
 0
 10
-2
+6
 1
 1
 (1 in 10 raised to this)
