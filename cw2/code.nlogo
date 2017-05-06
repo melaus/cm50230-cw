@@ -243,26 +243,6 @@ to set-pos
       set grp (grp + 1)
   ])
 end
-
-;; create centroids of subpopulations
-;to create-centroids
-;  set list-centroids-x n-values num-subpopulations [0] ; reset list
-;  set list-centroids-y n-values num-subpopulations [0] ; reset list
-;  foreach n-values (num-subpopulations) [ (? - 1) + 1 ] [
-;     set list-centroids-x ((replace-item (?1) (list-centroids-x) (calc-centroid-norm-val)))
-;     set list-centroids-y ((replace-item (?1) (list-centroids-y) (calc-centroid-norm-val)))
-;  ]
-;end
-
-;; calculate a value taken from the normal distribution with the given density
-;to-report calc-centroid-norm-val
-;  let result random-normal 0 subpopulation-density
-;  ; bound it to be within environment boundaries
-;  while [result > max-pxcor or result < min-pxcor or result > max-pycor or result < min-pycor] [
-;    set result random-normal 0 subpopulation-density
-;  ]
-;  report result
-;end
 ;;;;;;; NEW ;;;;;;;
 
 
@@ -376,7 +356,7 @@ to get-infant-knowledge
 let ixi 0
 
       set knowhow n-values num-special-food-strat [0]
-                        if ((num-special-food-strat > 0) and (random-float 1 < p-knowhow)) [
+                        if ((num-special-food-strat > 0) and (random-float 1 < p-knowhow) and quad = 0) [
                           set ixi (random num-special-food-strat)
                           set knowhow replace-item ixi knowhow 1
                           ]
@@ -1179,7 +1159,7 @@ freq-of-mutation
 freq-of-mutation
 0
 10
-2
+10
 1
 1
 (1 in 10 raised to this)
@@ -1300,7 +1280,7 @@ freq-of-migration
 freq-of-migration
 0
 10
-6
+3
 1
 1
 (1 in 10 raised to this)
